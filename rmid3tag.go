@@ -5,7 +5,11 @@ import (
   "os"
   "io"
   "bytes"
+  "golang.org/x/text/transform"
+  "golang.org/x/text/encoding/unicode"
 )
+
+//// for delete
 
 type Stat struct {
   Size            int64
@@ -145,6 +149,8 @@ func isExistMP3Frame(r io.ReaderAt, offset int64) (bool, error) {
   return true, nil
 }
 
+//// utilites
+
 func decodeSynchsafe(data []byte, size int) int {
 
   result := 0
@@ -156,4 +162,104 @@ func decodeSynchsafe(data []byte, size int) int {
   return result
 }
 
+func encodeSynchsafe(data int, size int) []byte {
+
+  result := make([]byte, size)
+
+  for i:=0; i<size; i++ {
+    result[i] = byte((data & 0x7f) >> uint(7 * (size-1-i)))
+  }
+
+  return result
+}
+
+//// for create
+
+func CreateMinimumTag(title, artist string) ([]byte, error) {
+
+  tf, err := CreateTitleFrame(title)
+  if err != nil {
+    return []byte{}, err
+  }
+
+  af, err := CreateArtistFrame(artist)
+  if err != nil {
+    return []byte{}, err
+  }
+
+  return CreateID3V2Tag(tf, af), nil
+}
+
+func CreateID3V2Tag(frames ...[]byte) []byte {
+
+  size := 0
+  for _, frame := range frames {
+    size += len(frame)
+  }
+
+  buf := &bytes.Buffer{}
+  buf.WriteString("ID3")
+  buf.Write([]byte{0x3,0x0,0x0}) //version 2.3
+  buf.Write(encodeSynchsafe(size, 4))
+  for _, frame := range frames {
+    buf.Write(frame)
+  }
+
+  return buf.Bytes()
+}
+
+func CreateTitleFrame(text string) ([]byte, error) {
+  return CreateTextFrame("TIT2", text)
+}
+
+func CreateArtistFrame(text string) ([]byte, error) {
+  return CreateTextFrame("TPE1", text)
+}
+
+func CreateTextFrame(id, text string) ([]byte, error) {
+
+  data, err := encodeTextFrameData(text)
+  if err != nil {
+    return []byte{}, err
+  }
+  size := len(data)
+
+  buf := &bytes.Buffer{}
+  buf.WriteString(id)
+  buf.WriteByte(byte(0xff&(size>>24)))
+  buf.WriteByte(byte(0xff&(size>>16)))
+  buf.WriteByte(byte(0xff&(size>>8)))
+  buf.WriteByte(byte(0xff&size))
+  buf.Write([]byte{0x0,0x0})
+  buf.Write(data)
+
+  return buf.Bytes(), nil
+}
+
+func encodeTextFrameData(s string) ([]byte, error) {
+
+  u16bytes,err := toUTF16BEWithBOM(s)
+  if err != nil {
+    return []byte{}, err
+  }
+
+  buf := &bytes.Buffer{}
+  buf.Write([]byte{0x1}) //encoding UTF16/useBOM
+  buf.Write(u16bytes)
+  buf.Write([]byte{0x0,0x0}) //null terminater
+
+  return buf.Bytes(), nil
+}
+
+func toUTF16BEWithBOM(s string) ([]byte, error) {
+
+  u16str, _, err := transform.String(
+    unicode.UTF16(unicode.BigEndian, unicode.UseBOM).NewEncoder(), s)
+
+  if err != nil {
+    return []byte{}, err
+  }
+
+  return []byte(u16str), nil
+}
 
