@@ -3,6 +3,7 @@ package main
 import (
   "flag"
   "fmt"
+  "strings"
   "os"
   "io"
   "io/ioutil"
@@ -24,9 +25,12 @@ Usage:
     -s or -set    ... set tag. must be used with -t and -a.
     -t or -title  ... title.  use -t="SONG NAME"
     -a or -artist ... artist. use -a="ARTIST NAME"
+    -g or -guess  ... set tag. guess title and artist from filename.
+                      file must be named as "Artist - Title.mp3".
 `
 
 var optionsCheck  bool
+var optionsGuess  bool
 var optionsSet    bool
 var optionsTitle  string
 var optionsArtist string
@@ -34,10 +38,12 @@ var optionsArtist string
 func main() {
 
   // options parse
-  flag.BoolVar(&optionsCheck, "check",  false, "nothing is changed. dump id3tag info.")
-  flag.BoolVar(&optionsCheck, "c",      false, "nothing is changed. dump id3tag info.")
-  flag.BoolVar(&optionsSet,   "set",    false, "set title and artist with -t and -a")
-  flag.BoolVar(&optionsSet,   "s",      false, "set title and artist with -t and -a")
+  flag.BoolVar(&optionsCheck, "check", false, "nothing is changed. dump id3tag info.")
+  flag.BoolVar(&optionsCheck, "c",     false, "nothing is changed. dump id3tag info.")
+  flag.BoolVar(&optionsGuess, "guess", false, "set tag. guess title and artist from filename.")
+  flag.BoolVar(&optionsGuess, "g",     false, "set tag. guess title and artist from filename.")
+  flag.BoolVar(&optionsSet,   "set",   false, "set title and artist with -t and -a")
+  flag.BoolVar(&optionsSet,   "s",     false, "set title and artist with -t and -a")
   flag.StringVar(&optionsTitle,  "title",  "", "title")
   flag.StringVar(&optionsTitle,  "t",      "", "title")
   flag.StringVar(&optionsArtist, "artist", "", "artist")
@@ -45,7 +51,7 @@ func main() {
   flag.Parse()
 
   if optionsSet {
-    if optionsTitle == "" || optionsArtist == "" {
+    if optionsTitle == "" || optionsArtist == "" || optionsGuess {
       fmt.Printf("%s", usage)
       os.Exit(1)
     }
@@ -70,6 +76,12 @@ func main() {
     fmt.Printf("[rmid3tag] MPEG Frame Offset = %v\n", stat.OffsetMPEGFrame)
     fmt.Printf("[rmid3tag] MPEG Frame Size   = %v\n", stat.SizeOfMPEGFrame())
     os.Exit(0)
+  }
+
+  if optionsGuess {
+    _, name, _ := splitFilepath(filename)
+    optionsTitle, optionsArtist = guessFromFilename(name)
+    optionsSet = true
   }
 
   tag := []byte{}
@@ -146,6 +158,38 @@ func Copy(filename string, offset, size int64, tag []byte) (tempfile string, err
   }
 
   return tempfile, nil
+}
+
+func guessFromFilename(filename string) (title, artist string) {
+
+  index := strings.Index(filename, " - ")
+  if index == -1 || index == 0 || (index+3) == len(filename) {
+    return "-", "-"
+  }
+
+  artist = filename[0:index]
+  title  = filename[index+3:len(filename)]
+
+  return title, artist
+}
+
+func splitFilepath(fpath string) (dir, name, ext string) {
+
+  dir   = filepath.Dir(fpath)
+  base := filepath.Base(fpath)
+
+  dotindex := strings.LastIndex(base, ".")
+
+  // file has no extention
+  if dotindex == -1 {
+    name = base
+    ext  = ""
+    return
+  }
+
+  name = base[0:dotindex]
+  ext  = base[dotindex:len(base)]
+  return
 }
 
 func errorExit(f string, v ...interface{}) {

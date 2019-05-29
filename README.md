@@ -3,18 +3,42 @@
 This program deletes the id3 tag contained in the mp3 file.
 By default the original file is left as a backup.
 
+After deletion, you can set the tag of title and artist.
+
+If the title and the artist are included in the file name, 
+it can be set automatically as it is.
+
+
+## purpose
+
+mp3ファイルを "アーティスト名 - 曲名.mp3" で管理している。
+そのファイル名は無視されて、タグでプレイヤーが分類しているのだが、
+タグのアーティスト名の正規化がいまいちだったり、どう見ても余計な
+タグが付いていたりで、アートワークとかもあったりなかったりで
+不快なので、全部消してタイトルとアーティストだけ付加することにした。
+
+
 ## Usage
 
 ```
+Usage:
   rmid3tag [OPTION] FILENAME
+
+  when the option is not set, only delete tags.
 
   OPTION:
     -c or -check  ... nothing is changed. dump id3tag info.
+    -s or -set    ... set tag. must be used with -t and -a.
+    -t or -title  ... title.  use -t="SONG NAME"
+    -a or -artist ... artist. use -a="ARTIST NAME"
+    -g or -guess  ... set tag. guess title and artist from filename.
+                      file must be named as "Artist - Title.mp3".
+
 ```
 
 ## Example
 
-like this
+This is an example of tag deletion
 
 ```
 $ rmid3tag.exe -check sample.mp3
@@ -40,3 +64,16 @@ $ rmid3tag.exe -check sample.mp3
 $ 
 ```
 
+
+This is an example of setting title and artist after erasing all tags.
+
+```
+$ rmid3tag.exe -s -t="TITLE" -a="ARTIST" sample.mp3
+```
+
+
+This is automatically guessing from the file name the same operation as above
+
+```
+$ rmid3tag.exe -g "ARTIST - TITLE.mp3"
+```
