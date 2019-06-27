@@ -127,8 +127,7 @@ func Copy(filename string, offset, size int64, tag []byte) (tempfile string, err
   }
   defer f.Close()
 
-  // create temporary file in the same location as Windows can not 
-  // rename between different drives
+  // create temporary file in the same location for os.Rename.
   tf, err := ioutil.TempFile(filepath.Dir(filepath.Clean(filename)), "tmp_")
   if err != nil {
     return "", err

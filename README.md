@@ -2,20 +2,9 @@
 
 This program deletes the id3 tag contained in the mp3 file.
 By default the original file is left as a backup.
-
 After deletion, you can set the tag of title and artist.
-
 If the title and the artist are included in the file name, 
 it can be set automatically as it is.
-
-
-## purpose
-
-mp3ファイルを "アーティスト名 - 曲名.mp3" で管理している。
-そのファイル名は無視されて、タグでプレイヤーが分類しているのだが、
-タグのアーティスト名の正規化がいまいちだったり、どう見ても余計な
-タグが付いていたりで、アートワークとかもあったりなかったりで
-不快なので、全部消してタイトルとアーティストだけ付加することにした。
 
 
 ## Usage

@@ -32,7 +32,7 @@ func (s *Stat) SizeOfMPEGFrame() int64 {
 // |  (optional)   |
 // +---------------+ <-- offset
 // |               |   |
-// |  MPEG Frames  |   | size
+// |  MPEG Frames  |   | size of mpeg frame
 // |               |   |
 // +---------------+ <-+ 
 // |  ID3v1tag     |
@@ -58,17 +58,9 @@ func GetStat(filename string) (stat *Stat, err error) {
   stat.Size = info.Size()
 
   // v2tag
-  stat.V2TagExist, err = isExistID3v2Tag(f)
+  stat.V2TagExist, stat.OffsetMPEGFrame, err = getID3v2TagSize(f)
   if err != nil {
     return stat, err
-  }
-
-  if stat.V2TagExist {
-    stat.OffsetMPEGFrame, err = getID3v2TagSize(f)
-    if err != nil {
-      return stat, err
-    }
-    stat.OffsetMPEGFrame += 10 // add v2tag header size
   }
 
   // v1tag
@@ -77,56 +69,68 @@ func GetStat(filename string) (stat *Stat, err error) {
     return stat, err
   }
 
-  // check mpeg frame
-  ok, err := isExistMP3Frame(f, stat.OffsetMPEGFrame)
-  if err != nil {
-    return stat, err
-  }
-  if ! ok {
-    return stat, fmt.Errorf("mpeg frame not found")
-  }
-
   return stat, nil
 }
 
-func isExistID3v2Tag(r io.ReaderAt) (bool, error) {
+func getID3v2TagSize(r io.ReaderAt) (isExist bool, size int64, err error) {
 
-  data := make([]byte, 3)
-
-  n, err := r.ReadAt(data, 0)
-  if n != 3 || err != nil {
-    return false, err
+  marker := make([]byte, 4)
+  n, err := r.ReadAt(marker, 0)
+  if n != 4 || err != nil {
+    return false, 0, err
   }
 
-  if string(data) != "ID3" {
-    return false, nil
+  var offset int64 = 0 //header start position
+
+  if string(marker[:3]) != "ID3" {
+
+     // some mp3 file has irregular byte at the beginning,
+     // so ignore them.
+     if string(marker[1:]) == "ID3" {
+       offset += 1
+     } else {
+       // then marker not found
+       return false, 0, nil
+     }
   }
 
-  return true, nil
-}
-
-func getID3v2TagSize(r io.ReaderAt) (int64, error) {
+  isExist = true
 
   data := make([]byte, 4)
-
-  n, err := r.ReadAt(data, 6)
+  n, err = r.ReadAt(data, 6 + offset)
   if n != 4 || err != nil {
-    return 0, err
+    return isExist, 0, err
   }
 
-  return int64(decodeSynchsafe(data, 4)), nil
+  size = int64(decodeSynchsafe(data, 4))
+  size += 10 + offset //add v2 header size
+
+  // Some files have padding greater than the specified size,
+  // so search until the mpeg frame is found.
+  for ;; size++ {
+    ok, err := isExistMP3Frame(r, size)
+
+    if err != nil {
+      return isExist, size, fmt.Errorf("mpeg frame not found")
+    }
+
+    if ok { // found
+      return isExist, size, nil
+    }
+  }
+
+  return isExist, size, nil // do not reach here
 }
 
 func isExistID3v1Tag(r io.ReaderAt, offset int64) (bool, error) {
 
-  data := make([]byte, 3)
-
-  n, err := r.ReadAt(data, offset)
+  marker := make([]byte, 3)
+  n, err := r.ReadAt(marker, offset)
   if n != 3 || err != nil {
     return false, err
   }
 
-  if string(data) != "TAG" {
+  if string(marker) != "TAG" {
     return false, nil
   }
 
@@ -136,17 +140,23 @@ func isExistID3v1Tag(r io.ReaderAt, offset int64) (bool, error) {
 func isExistMP3Frame(r io.ReaderAt, offset int64) (bool, error) {
 
   data := make([]byte, 2)
-
   n, err := r.ReadAt(data, offset)
   if n != 2 || err != nil {
     return false, err
   }
 
-  if ! bytes.HasPrefix(data, []byte{0xff,0xfb}) {
-    return false, nil
+  // beginning byte pattern of mpeg frame
+  pattern := [][]byte{
+    {0xff,0xfb}, {0xff,0xfa},
   }
 
-  return true, nil
+  for _, p := range pattern {
+    if bytes.HasPrefix(data, p) {
+      return true, nil
+    }
+  }
+
+  return false, nil
 }
 
 //// utilites
