@@ -4,7 +4,7 @@ This program deletes the id3 tag contained in the mp3 file.
 By default the original file is left as a backup.
 After deletion, you can set the tag of title and artist.
 If the title and the artist are included in the file name, 
-it can be set automatically as it is.
+you can use `-g` option to set it automatically.
 
 
 ## Usage
@@ -27,7 +27,7 @@ Usage:
 
 ## Example
 
-This is an example of tag deletion
+This is an example of tag deletion.
 
 ```
 $ rmid3tag.exe -check sample.mp3
@@ -61,7 +61,7 @@ $ rmid3tag.exe -s -t="TITLE" -a="ARTIST" sample.mp3
 ```
 
 
-This is automatically guessing from the file name the same operation as above
+This is automatically guessing from the file name the same operation as above.
 
 ```
 $ rmid3tag.exe -g "ARTIST - TITLE.mp3"
